@@ -1,67 +1,104 @@
 {
-  "schema_version": 1,
-  "display_name": "2.5 m PAN TextureNet V8 + SegFormer Roads V9",
-  "architecture": "Texture teacher/student cascade + SegFormer MiT-B0 road expert",
-  "overall_accuracy": null,
-  "overall_accuracy_scope": "Not measured as independent five-class accuracy; weak-reference agreement is reported separately",
-  "mean_iou": null,
-  "metric_units": "percent",
-  "independent_test_accuracy": null,
-  "family": "pan_2_5m",
-  "model_id": "universal_multibranch_segformer_v5_final",
-  "resolution_m": 2.5,
-  "resolution_tolerance_m": 0.15,
+  "schema_version": 2,
+  "display_name": "SegFormer MiT-B0 V9 Semantic Core (BANDA and JNPA PAN 2.5m)",
+  "author": "Vansh Arora",
+  "architecture": "SegFormer MiT-B0 V9, one-channel five-class semantic head",
+  "sensor": "1-Band Panchromatic (2.5m)",
+  "dataset_name": "BANDA and JNPA panchromatic imagery",
+  "native_gsd_m": 2.5,
   "input_channels": 1,
-  "band_order": [
-    "panchromatic"
-  ],
-  "classes": {
-    "0": "Water Bodies",
-    "1": "Vehicle Roads",
-    "2": "Urban Built-up",
-    "3": "Barren / Empty Land",
-    "4": "Vegetation"
-  },
+  "band_count": 1,
   "num_classes": 5,
-  "ignore_index": 255,
-  "patch_size": 256,
-  "inference_stride": 128,
-  "weights_file": "model_weights.pth",
-  "weights_sha256": "43b5e041c7b6c81b4a91377475aa5bc4361b2fc8c4b0d35977686f71c6af5f57",
-  "weights_bytes": 15569532,
-  "weights_url": "https://github.com/vansharora665/Urban-Atlas-Final-Models/releases/download/v1.0.0/pan_2_5m_model_weights.pth",
-  "checkpoint_format": "torch-safe original-component bundle; not a plain state_dict",
-  "requires_custom_loader": true,
-  "loader": "loader.py:load_model",
-  "predict_method": "predict_tif",
-  "supported_inputs": [
-    "projected metre-based GeoTIFF at the declared resolution"
-  ],
-  "requires_external_maps": false,
-  "training_data_included": false,
-  "source_components": [
-    {
-      "path": "model_rebuild_v2/outputs/pan_texture_cascade_v8/pan_texture_cascade_v8.joblib",
-      "sha256": "4f2351437ecf83d3d0d62c509a1c3af281a68e26ff9ebf252cf3b01775d4852d"
-    },
-    {
-      "path": "model_rebuild_v2/outputs/pan_road_continuity_v9/best_model.pt",
-      "sha256": "507dec6915992a6a958ff408db8228413895bb04fff87dc81017a9cde9ae9c50"
-    }
-  ],
-  "limitations": [
-    "Research prototype; no arbitrary-location accuracy guarantee",
-    "Unknown/cloud/no-data remain distinct",
-    "Road surfaces are not a validated navigation graph"
-  ],
-  "licence_note": "Academic/non-commercial research only for the included CoANet dependency; retain upstream notices; not commercially cleared",
-  "weak_reference_agreement": 92.13,
-  "weak_reference_scope": "Partial weak water/urban/vegetation references, not independent five-class test accuracy",
-  "road_specialist": {
-    "architecture": "SegFormer mit_b0",
-    "raw_partial_reference_road_iou": 28.186288021378864,
-    "metric_scope": "Partial weak road references before geometry filtering; not a blind five-class test"
+  "classes": {
+    "0": "Water",
+    "1": "Vegetation",
+    "2": "Barren Land",
+    "3": "Built-up",
+    "4": "Roads"
   },
+  "source_to_platform_channels": [
+    0,
+    4,
+    3,
+    2,
+    1
+  ],
+  "overall_accuracy": null,
+  "macro_miou": null,
+  "class_ious": {
+    "Water": null,
+    "Vegetation": null,
+    "Barren Land": null,
+    "Built-up": null,
+    "Roads": null
+  },
+  "metric_units": "percent",
+  "metrics_status": "Not independently measured for this exported raw tensor interface",
+  "metric_scope": "Do not substitute full-pipeline development metrics, weak-label agreement or road-only scores. Null means unavailable, not zero.",
+  "class_weights": {
+    "Water": 1,
+    "Vegetation": 1,
+    "Barren Land": 1,
+    "Built-up": 1,
+    "Roads": 1
+  },
+  "class_weights_scope": "Neutral inference/ensemble weights; not a claim about static training loss weights",
+  "preprocessing": {
+    "normalization_type": "minmax",
+    "means": [
+      0
+    ],
+    "stds": [
+      1
+    ],
+    "percentile_limits": [
+      1,
+      99
+    ],
+    "adaptive_upper_tail": true,
+    "tile_size": 512,
+    "overlap": 128,
+    "custom_function": "adapter.py:preprocess",
+    "normalization_scope": "Whole scene once before tiling; reuse scene-wide limits when streaming",
+    "nodata_policy": "All-zero or nonfinite input is excluded from normalization; host must preserve raster masks as Unknown 255",
+    "band_order": [
+      "panchromatic"
+    ],
+    "input_range": "raw DN; adapter returns float32 in [0,1]; do not apply ImageNet normalization"
+  },
+  "family": "pan_2_5m",
+  "weights_file": "model_weights.pth",
+  "torchscript_file": "model.pt",
+  "checkpoint_format": "tensor-only state_dict; original FP32; lossless ZIP DEFLATE",
+  "loader": "adapter.py:get_model",
+  "output_type": "logits",
+  "training_data_included": false,
+  "ignore_index": 255,
+  "source_component": "model_rebuild_v2/outputs/pan_road_continuity_v9/best_model.pt",
+  "original_pipeline": {
+    "loader": "loader.py:load_model",
+    "config": "pipeline_config.json",
+    "weights": "pipeline_weights.bundle",
+    "class_order": [
+      "Water",
+      "Roads",
+      "Built-up",
+      "Barren Land",
+      "Vegetation"
+    ],
+    "unchanged_source_components": true,
+    "distinction": "Texture teacher/student cascade, road geometry filtering and Unknown rejection remain separate; raw SegFormer is not the full hybrid"
+  },
+  "limitations": [
+    "Research model, not a validated navigation or survey product",
+    "Tensor interface has five logits; apply no-data/cloud/uncertainty masks outside the network",
+    "Same GSD does not guarantee accuracy at unseen locations",
+    "Export does not retrain the model or improve accuracy"
+  ],
   "repository_url": "https://github.com/vansharora665/Urban-Atlas-PAN-2_5m",
-  "weights_mirror_note": "The existing verified combined-release download remains a checksum-pinned fallback; this repository also stores the actual weights via Git LFS."
+  "weights_sha256": "f0a28ab4de6236ca2912586559e712b96ce8bcb699fed95ba17da4188bb7cc50",
+  "weights_bytes": 13846737,
+  "torchscript_sha256": "808be8fcf145af98f110f5dff7a62641724296c306ca32e099b7cffcb9fa32ea",
+  "torchscript_bytes": 13826768,
+  "source_checkpoint_sha256": "507dec6915992a6a958ff408db8228413895bb04fff87dc81017a9cde9ae9c50"
 }

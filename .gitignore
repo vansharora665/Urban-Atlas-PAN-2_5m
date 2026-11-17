@@ -3,3 +3,4 @@
 *.downloading
 *.log
 .DS_Store
+pipeline_weights.bundle

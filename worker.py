@@ -24,7 +24,7 @@ def digest(path):
 
 def materialize(config):
     import torch
-    weights = HERE / "model_weights.pth"
+    weights = HERE / "pipeline_weights.bundle"
     if digest(weights) != config["weights_sha256"]:
         raise ValueError("Bundle checksum mismatch")
     bundle = torch.load(weights, map_location="cpu", weights_only=True)
@@ -132,7 +132,7 @@ def main():
         # The isolated worker contains this override; the host platform is unaffected.
         torch.cuda.is_available = lambda: False
         torch.backends.mps.is_available = lambda: False
-    config = json.loads((HERE / "model_config.json").read_text())
+    config = json.loads((HERE / "pipeline_config.json").read_text())
     project, verified = materialize(config)
     output = args.output.resolve() if args.output else HERE / ".component_cache/verification"
     if args.output and output.exists() and any(output.iterdir()):

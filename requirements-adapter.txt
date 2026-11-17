@@ -1,0 +1,5 @@
+# Python 3.9+; tested locally with torch 2.2.2 and SMP 0.5.0.
+numpy>=1.26,<3
+torch>=2.2,<3
+torchvision>=0.17,<1
+segmentation-models-pytorch==0.5.0

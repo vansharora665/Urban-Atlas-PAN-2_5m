@@ -1,0 +1,18 @@
+{
+  "status": "PASS",
+  "source_sha256": "507dec6915992a6a958ff408db8228413895bb04fff87dc81017a9cde9ae9c50",
+  "tensor_count": 192,
+  "storage_dtype": "original FP32; lossless ZIP DEFLATE",
+  "optimizer_scaler_scheduler_included": false,
+  "output_shape": [
+    1,
+    5,
+    512,
+    512
+  ],
+  "trace_max_abs_error": 1.71661376953125e-05,
+  "weights_bytes": 13846737,
+  "torchscript_bytes": 13826768,
+  "export_seconds": 1.99,
+  "accuracy_test": false
+}

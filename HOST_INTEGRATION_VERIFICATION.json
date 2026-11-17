@@ -1,0 +1,27 @@
+{
+  "status": "PASS",
+  "tests": [
+    {
+      "repo": "Urban-Atlas-PAN-2_5m",
+      "actual_host_importer": "PASS",
+      "python_and_torchscript_runners": "PASS",
+      "raw_preprocess_hook": "PASS",
+      "unreported_metrics_remain_null": "PASS",
+      "non_square_overlapping_tiles": "PASS",
+      "wrong_bands_fail_closed": "PASS"
+    },
+    {
+      "repo": "Urban-Atlas-Native-0_6m",
+      "actual_host_importer": "PASS",
+      "python_and_torchscript_runners": "PASS",
+      "raw_preprocess_hook": "PASS",
+      "unreported_metrics_remain_null": "PASS",
+      "non_square_overlapping_tiles": "PASS",
+      "wrong_bands_fail_closed": "PASS"
+    }
+  ],
+  "host_revision": "f401dbec06d6330aa802cc2a67af30293aa0c8d6",
+  "scope": "Local execution of actual public host importer/runner; in-memory registry and image-bundle stubs; UI syntax checked, not live Streamlit deployment",
+  "hosted_app_modified": false,
+  "accuracy_test": false
+}

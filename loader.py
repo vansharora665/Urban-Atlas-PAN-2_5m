@@ -23,8 +23,8 @@ def sha256(path):
 
 def ensure_weights(folder=HERE):
     folder = Path(folder).resolve()
-    config = json.loads((folder / "model_config.json").read_text())
-    path = folder / "model_weights.pth"
+    config = json.loads((folder / "pipeline_config.json").read_text())
+    path = folder / "pipeline_weights.bundle"
     pointer = False
     if path.is_file():
         with path.open("rb") as f:
@@ -57,7 +57,7 @@ class UrbanAtlasModel:
 
     def __init__(self, folder=HERE, device="auto"):
         self.folder = Path(folder).resolve()
-        self.config = json.loads((self.folder / "model_config.json").read_text())
+        self.config = json.loads((self.folder / "pipeline_config.json").read_text())
         if device not in {"auto", "cpu"}:
             raise ValueError("Use auto (CUDA/MPS/CPU) or cpu")
         self.device = device

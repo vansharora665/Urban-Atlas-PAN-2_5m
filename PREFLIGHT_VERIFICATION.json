@@ -1,0 +1,26 @@
+{
+  "status": "PASS",
+  "output_shape": [
+    1,
+    5,
+    512,
+    512
+  ],
+  "checks": [
+    "strict weights or checksum-pinned TorchScript restore",
+    "512x512 finite five-class logits",
+    "canonical class mapping",
+    "correct input bands and percentile normalization",
+    "standalone TorchScript numeric parity",
+    "module-prefix cleanup when SMP is installed",
+    "arbitrary-edge tile padding",
+    "input sensitivity",
+    "CHW/HWC parity",
+    "no-data and nonfinite safety",
+    "wrong-band rejection",
+    "both artifacts below 100 MB"
+  ],
+  "seconds": 2.17,
+  "accuracy_test": false,
+  "scope": "Interface and numerical export checks only; not accuracy or full pipeline equivalence"
+}

@@ -1,0 +1,271 @@
+--- a/inference/generic.py
++++ b/inference/generic.py
+@@ -51,7 +51,9 @@
+     Guarantees strict numerical parity with training through custom preprocessing pipelines.
+     """
+     def __init__(self, model_info: Dict[str, Any], device: Optional[str] = None):
+-        super().__init__(model_info, device)
++        super().__init__(model_info)
++        if device is not None:
++            self.device = torch.device(device)
+         self.is_custom = True
+         self.load_error_msg: Optional[str] = None
+         self.loaded_via: str = "simulation"
+@@ -75,6 +77,13 @@
+         repo_dir = self.model_info.get("repo_dir")
+         custom_script = self.model_info.get("custom_script")
+         ckpt_path = self.model_info.get("checkpoint_path")
++
++        # TorchScript still requires the contributor's radiometric preprocessing.
++        if custom_script and os.path.exists(custom_script):
++            spec = importlib.util.spec_from_file_location("custom_teammate_model", custom_script)
++            mod = importlib.util.module_from_spec(spec)
++            spec.loader.exec_module(mod)
++            self.custom_preprocess_fn = getattr(mod, "preprocess", None)
+ 
+         # Add repo directory to sys.path so any internal modules can resolve
+         if repo_dir and os.path.exists(repo_dir) and repo_dir not in sys.path:
+@@ -186,10 +195,9 @@
+                         tensor = torch.from_numpy(tensor).float()
+                     if tensor.ndim == 3:
+                         tensor = tensor.unsqueeze(0)
+-                    tensor = tensor.to(self.device)
++                    tensor = tensor.cpu()
+                 except Exception as e:
+-                    warnings.append(f"Custom preprocessing notice: {e}, falling back to standard pipeline.")
+-                    tensor = None
++                    raise RuntimeError("Contributor preprocessing failed; prediction stopped") from e
+             else:
+                 tensor = None
+ 
+@@ -236,7 +244,7 @@
+                     if inp.max() > 1.0:
+                         inp = inp / 255.0
+ 
+-                tensor = torch.from_numpy(inp).unsqueeze(0).to(self.device)
++                tensor = torch.from_numpy(inp).unsqueeze(0)
+ 
+             try:
+                 mask, conf, probs = run_tiled_inference(
+@@ -251,11 +259,12 @@
+                 dur = time.time() - t0
+                 return mask, conf, dur, warnings
+             except Exception as e:
+-                warnings.append(f"Model forward pass notice: {str(e)}. Running with calibrated specialization profile.")
++                raise RuntimeError("Trained model inference failed; no simulated output was generated") from e
+ 
+         # ---------------------------------------------------------------------
+         # Case B: Checkpoint is State-Dict Only or Code Pending Upload
+         # ---------------------------------------------------------------------
++        raise RuntimeError("No trained model loaded: " + str(self.load_error_msg or "missing compatible weights/adapter"))
+         mid = self.model_info["id"]
+         disp_name = self.model_info.get('display_name', 'Contributed Model')
+         warnings.append(f"Contributed Model: {disp_name}.")
+--- a/inference/github_importer.py
++++ b/inference/github_importer.py
+@@ -14,6 +14,7 @@
+ import shutil
+ import zipfile
+ import subprocess
++import sys
+ import urllib.request
+ from typing import Dict, Any, List, Optional, Tuple
+ 
+@@ -200,6 +201,11 @@
+         # Prefer files with 'best' or 'model' or largest .pth
+         sorted_weights = sorted(weight_files, key=lambda w: ("best" in w["filename"].lower(), w["size_mb"]), reverse=True)
+         candidate_weights = sorted_weights[0]
++        declared = config_data.get("weights_file")
++        if declared:
++            candidate_weights = next((w for w in weight_files if w["rel_path"] == declared), None)
++            if candidate_weights is None:
++                raise ValueError("Configured weights_file is missing from repository")
+ 
+     # Find candidate inference script
+     candidate_script = None
+@@ -227,10 +233,10 @@
+                 cwd=repo_dir,
+                 capture_output=True,
+                 text=True,
+-                timeout=20
++                timeout=120
+             )
+             if res_pf.returncode == 0:
+-                preflight_status = "PASSED (100% Training-Inference Parity Verified)"
++                preflight_status = "PASSED (Contributor interface checks; not an accuracy guarantee)"
+                 preflight_output = res_pf.stdout.strip()
+             else:
+                 preflight_status = "FAILED (Preflight check non-zero exit)"
+@@ -273,8 +279,8 @@
+ 
+     sensor_choice = config_data.get("sensor") or "3-Band Optical RGB"
+     native_gsd = float(config_data.get("native_gsd_m") or config_data.get("gsd_m") or 1.24)
+-    reported_oa = float(config_data.get("overall_accuracy") or config_data.get("oa") or 82.5)
+-    reported_miou = float(config_data.get("macro_miou") or config_data.get("miou") or (reported_oa - 28.0))
++    reported_oa = config_data.get("overall_accuracy", config_data.get("oa"))
++    reported_miou = config_data.get("macro_miou", config_data.get("miou"))
+     desc = config_data.get("description") or f"Contributed model from {owner}/{repo}."
+ 
+     return {
+@@ -297,11 +303,13 @@
+             "dataset_name": dataset_name,
+             "native_gsd_m": native_gsd,
+             "overall_accuracy": reported_oa,
+-            "macro_miou": round(reported_miou, 2),
++            "macro_miou": reported_miou,
+             "class_ious": config_data.get("class_ious", {
+-                "Water": 45.0, "Vegetation": 68.0, "Barren Land": 15.0, "Built-up": 72.0, "Roads": 65.0
++                "Water": None, "Vegetation": None, "Barren Land": None, "Built-up": None, "Roads": None
+             }),
+             "description": desc,
++            "metrics_status": config_data.get("metrics_status", "Contributor-reported; not independently verified"),
++            "class_weights": config_data.get("class_weights", {}),
+             "repo_url": parsed["web_url"]
+         }
+     }
+@@ -354,11 +362,11 @@
+         "status": "Ready",
+         "is_ensemble": False,
+         "verified_metrics": {
+-            "split": "Held-Out Test / Contributed Split",
+-            "macro_miou": float(meta.get("macro_miou", 54.5)),
+-            "overall_accuracy": float(meta.get("overall_accuracy", 82.5)),
++            "split": meta.get("metrics_status", "Contributor-reported; not independently verified"),
++            "macro_miou": meta.get("macro_miou"),
++            "overall_accuracy": meta.get("overall_accuracy"),
+             "class_ious": meta.get("class_ious", {
+-                "Water": 45.0, "Vegetation": 68.0, "Barren Land": 15.0, "Built-up": 72.0, "Roads": 65.0
++                "Water": None, "Vegetation": None, "Barren Land": None, "Built-up": None, "Roads": None
+             })
+         },
+         "class_weights": meta.get("class_weights", {
+@@ -368,7 +376,7 @@
+         "preflight_status": repo_info.get("preflight_status", "Not Provided"),
+         "compatibility": {
+             "native_bands": [bands_num],
+-            "allow_rgb_adaptation": True,
++            "allow_rgb_adaptation": False,
+             "supports_grayscale": (bands_num == 1)
+         },
+         "description": meta.get("description", "Contributed model imported directly from GitHub repository.")
+@@ -376,4 +384,3 @@
+ 
+     save_dynamic_model(model_entry)
+     return model_entry
+-
+--- a/ui/teammate_hub.py
++++ b/ui/teammate_hub.py
+@@ -123,7 +123,9 @@
+                             "DeepLabV3+ ResNet50", "PSPNet Edge-Loss", "U-Net ResNet34", "SegFormer-B1", "Custom PyTorch Module"
+                         ]
+                         cur_arch = meta.get("architecture", arch_list[0])
+-                        a_idx = arch_list.index(cur_arch) if cur_arch in arch_list else len(arch_list) - 1
++                        if cur_arch not in arch_list:
++                            arch_list.append(cur_arch)
++                        a_idx = arch_list.index(cur_arch)
+                         f_arch = st.selectbox("Model Architecture:", arch_list, index=a_idx)
+                     with c_s:
+                         sensor_list = ["3-Band Optical RGB", "4-Band Multispectral (VNIR)", "8-Band WorldView-3 (1.24m)", "1-Band Panchromatic (2.5m)"]
+@@ -135,7 +137,11 @@
+                     with c_g:
+                         f_gsd = st.number_input("Target GSD (meters):", min_value=0.1, max_value=30.0, value=float(meta.get("native_gsd_m", 1.24)), step=0.1)
+                     with c_oa:
+-                        f_oa = st.number_input("Reported Accuracy (OA %):", min_value=0.0, max_value=100.0, value=float(meta.get("overall_accuracy", 82.5)), step=0.5)
++                        has_metrics = st.checkbox("I have a measured accuracy result", value=meta.get("overall_accuracy") is not None)
++                        f_oa = st.number_input("Reported Accuracy (OA %):", min_value=0.0, max_value=100.0, value=float(meta.get("overall_accuracy") or 0), step=0.5) if has_metrics else None
++                        f_miou = st.number_input("Measured macro mIoU (%):", min_value=0.0, max_value=100.0, value=float(meta.get("macro_miou") or 0), step=0.5) if has_metrics else None
++                        if not has_metrics:
++                            st.caption("Not reported. No synthetic metrics will be assigned.")
+ 
+                     f_desc = st.text_input("Description / Specialization:", value=meta.get("description", ""))
+ 
+@@ -144,7 +150,8 @@
+                     sel_weight_path = cand_weights["full_path"] if cand_weights else None
+                     if len(info["weight_files"]) > 1:
+                         w_opts = {w["full_path"]: f"{w['rel_path']} ({w['size_mb']} MB)" for w in info["weight_files"]}
+-                        sel_weight_path = st.selectbox("Select Primary Checkpoint Weights:", options=list(w_opts.keys()), format_func=lambda x: w_opts[x])
++                        selected_index = list(w_opts).index(sel_weight_path) if sel_weight_path in w_opts else 0
++                        sel_weight_path = st.selectbox("Select Primary Checkpoint Weights:", options=list(w_opts.keys()), index=selected_index, format_func=lambda x: w_opts[x])
+                     elif len(info["weight_files"]) == 1:
+                         st.caption(f"📦 Checkpoint weights file: `{info['weight_files'][0]['rel_path']}` ({info['weight_files'][0]['size_mb']} MB)")
+ 
+@@ -161,7 +168,7 @@
+                                 "sensor": f_sensor,
+                                 "native_gsd_m": f_gsd,
+                                 "overall_accuracy": f_oa,
+-                                "macro_miou": round(f_oa - 28.0, 2),
++                                "macro_miou": f_miou,
+                                 "description": f_desc,
+                                 "checkpoint_path": sel_weight_path
+                             }
+--- a/ui/leaderboard_view.py
++++ b/ui/leaderboard_view.py
+@@ -100,6 +100,7 @@
+ 
+     names = [m["display_name"].split("(")[0].strip() for m in all_models]
+     scores = [metric_lookup[selected_metric_name](m) for m in all_models]
++    scores = [float("nan") if value is None else value for value in scores]
+ 
+     fig, ax = plt.subplots(figsize=(10, 4.6), facecolor="#FFFFFF")
+     ax.set_facecolor("#FFFFFF")
+@@ -135,8 +136,9 @@
+     for idx, m in enumerate(all_models):
+         metrics = m.get("verified_metrics", {})
+         ious = metrics.get("class_ious", {})
+-        oa = metrics.get("overall_accuracy", 0.0)
+-        miou = metrics.get("macro_miou", 0.0)
++        oa = metrics.get("overall_accuracy")
++        miou = metrics.get("macro_miou")
++        fmt = lambda value: "Not reported" if value is None else f"{value:.1f}%"
+         cw = m.get("class_weights", {"Water": 1.0, "Vegetation": 1.0, "Barren Land": 1.0, "Built-up": 1.0, "Roads": 1.0})
+         cw_str = f"[{cw.get('Water', 1.0):.1f}, {cw.get('Vegetation', 1.0):.1f}, {cw.get('Barren Land', 1.0):.1f}, {cw.get('Built-up', 1.0):.1f}, {cw.get('Roads', 1.0):.1f}]"
+ 
+@@ -149,13 +151,13 @@
+                 {m['display_name']}<br><span style="font-size: 0.82rem; color: #64748B; font-weight: 500;">{m['architecture']}</span>
+             </td>
+             <td style="padding: 12px 10px; color: #334155; font-size: 0.88rem; font-weight: 600;">{m['sensor']}<br><span style="color: #2563EB;">{m.get('native_gsd_m', 1.0)}m GSD</span></td>
+-            <td style="padding: 12px 10px; color: #1D4ED8; font-weight: 800; font-family: 'JetBrains Mono', monospace;">{oa:.1f}%</td>
+-            <td style="padding: 12px 10px; color: #059669; font-weight: 700; font-family: 'JetBrains Mono', monospace;">{miou:.1f}%</td>
++            <td style="padding: 12px 10px; color: #1D4ED8; font-weight: 800; font-family: 'JetBrains Mono', monospace;">{fmt(oa)}</td>
++            <td style="padding: 12px 10px; color: #059669; font-weight: 700; font-family: 'JetBrains Mono', monospace;">{fmt(miou)}</td>
+             <td style="padding: 12px 10px; color: #6D28D9; font-weight: 700; font-family: 'JetBrains Mono', monospace; font-size: 0.88rem;">{cw_str}</td>
+-            <td style="padding: 12px 8px; color: #0284C7; font-weight: 600;">{ious.get('Water', 0.0):.1f}%</td>
+-            <td style="padding: 12px 8px; color: #16A34A; font-weight: 600;">{ious.get('Vegetation', 0.0):.1f}%</td>
+-            <td style="padding: 12px 8px; color: #DC2626; font-weight: 600;">{ious.get('Built-up', 0.0):.1f}%</td>
+-            <td style="padding: 12px 8px; color: #D97706; font-weight: 600;">{ious.get('Roads', 0.0):.1f}%</td>
++            <td style="padding: 12px 8px; color: #0284C7; font-weight: 600;">{fmt(ious.get('Water'))}</td>
++            <td style="padding: 12px 8px; color: #16A34A; font-weight: 600;">{fmt(ious.get('Vegetation'))}</td>
++            <td style="padding: 12px 8px; color: #DC2626; font-weight: 600;">{fmt(ious.get('Built-up'))}</td>
++            <td style="padding: 12px 8px; color: #D97706; font-weight: 600;">{fmt(ious.get('Roads'))}</td>
+             <td style="padding: 12px 10px; font-size: 0.85rem; color: #475569; font-weight: 500;">{m['description']}</td>
+         </tr>
+         """
+--- a/inference/preprocessing.py
++++ b/inference/preprocessing.py
+@@ -235,6 +235,8 @@
+         probs (optional): 3D float numpy array of shape (5, H, W) with per-class softmax probabilities
+     """
+     _, c, h, w = input_tensor.shape
++    if not 0 <= overlap < tile_size:
++        raise ValueError("overlap must be nonnegative and smaller than tile_size")
+     num_classes = 5
+ 
+     # If small image, run direct forward pass
+@@ -255,6 +257,9 @@
+             return pred_mask, conf_map
+ 
+     # Multi-tile sliding window with overlap blending
++    original_h, original_w = h, w
++    input_tensor = F.pad(input_tensor, (0, max(0, tile_size-w), 0, max(0, tile_size-h)), mode="replicate")
++    h, w = input_tensor.shape[-2:]
+     stride = tile_size - overlap
+     prob_accum = np.zeros((num_classes, h, w), dtype=np.float32)
+     weight_accum = np.zeros((h, w), dtype=np.float32)
+@@ -295,6 +300,7 @@
+     for cls_idx in range(num_classes):
+         prob_accum[cls_idx] /= weight_accum
+ 
++    prob_accum = prob_accum[:, :original_h, :original_w]
+     pred_mask = np.argmax(prob_accum, axis=0).astype(np.uint8)
+     conf_map = np.max(prob_accum, axis=0)
+     if return_probs:
