@@ -1,0 +1,16 @@
+[
+  {
+    "id": "universal_multibranch_segformer_v5_final",
+    "display_name": "PAN TextureNet V8 + Connected Roads V9",
+    "model_type": "pan_texture",
+    "auto_select": true,
+    "summary_path": "config/active_model_summary.json",
+    "model_path": "../model_rebuild_v2/outputs/pan_texture_cascade_v8/pan_texture_cascade_v8.joblib",
+    "patch_size": 256,
+    "std_threshold": 0.02,
+    "valid_fraction_threshold": 0.72,
+    "dark_water_mean_threshold": 0.24,
+    "enabled": true,
+    "priority": 190
+  }
+]

@@ -1,0 +1,39 @@
+{
+  "status": "PASS",
+  "model_family": "pan_2_5m",
+  "source": "https://github.com/vansharora665/Urban-Atlas-Final-Models",
+  "weights_sha256": "43b5e041c7b6c81b4a91377475aa5bc4361b2fc8c4b0d35977686f71c6af5f57",
+  "model_weights_unchanged": true,
+  "root_layout_cpu_load_check": {
+    "status": "PASS",
+    "model": "2.5 m PAN TextureNet V8 + SegFormer Roads V9",
+    "checks": [
+      "Texture teacher and student: strict restore / finite output",
+      "SegFormer V9 roads: strict restore / finite output"
+    ],
+    "accuracy_test": false,
+    "scope": "Checkpoint restoration and synthetic finite-output smoke checks only",
+    "original_components_verified": [
+      {
+        "path": "model_rebuild_v2/outputs/pan_texture_cascade_v8/pan_texture_cascade_v8.joblib",
+        "sha256": "4f2351437ecf83d3d0d62c509a1c3af281a68e26ff9ebf252cf3b01775d4852d"
+      },
+      {
+        "path": "model_rebuild_v2/outputs/pan_road_continuity_v9/best_model.pt",
+        "sha256": "507dec6915992a6a958ff408db8228413895bb04fff87dc81017a9cde9ae9c50"
+      }
+    ]
+  },
+  "original_tiff_and_vector_smoke_checks": {
+    "status": "PASS",
+    "strict_checkpoint_loading": [
+      "Texture teacher and student: strict restore / finite output",
+      "SegFormer V9 roads: strict restore / finite output"
+    ],
+    "real_tiff_prediction": "PASS",
+    "exact_output_grid_and_class_schema": "PASS",
+    "requested_vector_archives": 1,
+    "shapefiles_with_sidecars": 4,
+    "independent_accuracy_evaluation": false
+  }
+}

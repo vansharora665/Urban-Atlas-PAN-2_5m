@@ -1,0 +1,85 @@
+{
+  "model_name": "pan_texture_student_teacher_cascade_with_connected_roads_v9",
+  "dataset_name": "BANDA + JNPA 2.5 m PAN / texture land cover + fine-tuned SegFormer roads V9",
+  "classes": {
+    "0": "Water Bodies",
+    "1": "Roads",
+    "2": "Urban Built-up",
+    "3": "Barren / Empty Land",
+    "4": "Vegetation"
+  },
+  "dataset": {
+    "name": "BANDA + JNPA 2.5 m PAN",
+    "image_path": "Banda/BANDA.tif",
+    "class_names": {
+      "0": "Water Bodies",
+      "1": "Roads",
+      "2": "Urban Built-up",
+      "3": "Barren / Empty Land",
+      "4": "Vegetation"
+    }
+  },
+  "config": {
+    "texture_features": 16,
+    "feature_context_pixels": 63,
+    "location_features": false
+  },
+  "metric_scope": "weak_reference",
+  "metrics": {
+    "val_accuracy": 0.9213469387755102,
+    "mean_iou": 0.84441035443845
+  },
+  "primary_metric_label": "Weak-reference agreement (water/urban/vegetation)",
+  "secondary_metric_label": "Observed-class weak-reference mean IoU",
+  "validation_scope": "partial_weak_reference_three_nonroad_classes_not_independent_five_class_accuracy",
+  "checkpoint_sha256": "4f2351437ecf83d3d0d62c509a1c3af281a68e26ff9ebf252cf3b01775d4852d",
+  "normalization_sources": [],
+  "inference": {
+    "pipeline": "pan_texturenet_v8_roads_v9",
+    "minimum_probability": 0.55,
+    "minimum_margin": 0.12,
+    "classifier_sampling_stride": 1
+  },
+  "road_specialist": {
+    "checkpoint": "../model_rebuild_v2/outputs/pan_road_continuity_v9/best_model.pt",
+    "checkpoint_sha256": "507dec6915992a6a958ff408db8228413895bb04fff87dc81017a9cde9ae9c50",
+    "best_epoch": 7,
+    "fine_tuning_epochs": 8,
+    "train_patches": 512,
+    "validation_patches": 128,
+    "train_geographic_blocks": 110,
+    "validation_geographic_blocks": 28,
+    "partial_reference_road_iou": 0.28186288021378864,
+    "partial_reference_road_precision": 0.33086710403461145,
+    "partial_reference_road_recall": 0.6555387320504054,
+    "partial_reference_road_f1": 0.4397707189505006,
+    "metrics_scope": "raw_road_specialist_argmax_before_geometry_fusion_on_partial_weak_reference",
+    "independent_ground_truth": false,
+    "continuity": {
+      "support_probability": 0.25,
+      "seed_probability": 0.65,
+      "gap_probability": 0.15,
+      "maximum_gap_m": 7.5,
+      "minimum_length_m": 40.0,
+      "maximum_width_m": 35.0
+    },
+    "spatial_guard": "long_two_sided_intensity_strips_plus_learned_road_support",
+    "overlap": 0.5,
+    "size_dependent_downsampling": false,
+    "land_classes_protected": [
+      0,
+      4,
+      255
+    ],
+    "loss": "road-weighted CE 3.5 + road Tversky + 0.4 soft clDice",
+    "augmentation": "flips, 90-degree rotations, brightness, contrast, gamma, CLAHE, blur, noise",
+    "geometry_verifier": null
+  },
+  "input_requirements": "Single-band PAN TIFF. Developed on 2.5 m BANDA/JNPA; other sensors/resolutions are not independently validated.",
+  "warning": "Experimental weakly supervised model. Thin roads, bridges and low-contrast roads can still be missed. Bright narrow roofs and linear field boundaries may remain false positives. Displayed land-cover agreement is not road or five-class test accuracy.",
+  "validation_note": "Land-cover scores are unchanged and cover water, urban and vegetation, not independent five-class ground truth. Road V9 uses the same 512/128 geographically separated partial reference patches. Its raw-head scores and final geometry-filter scores are different measurements. No city-wide road quota or geographic class overlay is used.",
+  "note": "Unchanged PAN V8 land classifier and native radiometry; separately fine-tuned SegFormer road expert. The road pass blends 50-percent-overlapping probabilities on the full 2.5 m working grid, rather than reducing big scenes to 5 m or requiring two views in singly covered interiors. Thin image-supported corridors, seed-and-grow hysteresis, compact-blob rejection and at-most-7.5 m model-supported gap repair improve continuity. Water, vegetation, clouds and Unknown are protected. Shapefiles remain on request only. The historical API model ID is retained for compatibility.",
+  "experimental_testing_enabled": true,
+  "deployment_status": "active",
+  "portable_normalization_note": "No source imagery is redistributed. Uploaded scenes use the original adaptive scene normalization; parent-crop inheritance requires the original parent products."
+}

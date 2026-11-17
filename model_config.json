@@ -1,0 +1,67 @@
+{
+  "schema_version": 1,
+  "display_name": "2.5 m PAN TextureNet V8 + SegFormer Roads V9",
+  "architecture": "Texture teacher/student cascade + SegFormer MiT-B0 road expert",
+  "overall_accuracy": null,
+  "overall_accuracy_scope": "Not measured as independent five-class accuracy; weak-reference agreement is reported separately",
+  "mean_iou": null,
+  "metric_units": "percent",
+  "independent_test_accuracy": null,
+  "family": "pan_2_5m",
+  "model_id": "universal_multibranch_segformer_v5_final",
+  "resolution_m": 2.5,
+  "resolution_tolerance_m": 0.15,
+  "input_channels": 1,
+  "band_order": [
+    "panchromatic"
+  ],
+  "classes": {
+    "0": "Water Bodies",
+    "1": "Vehicle Roads",
+    "2": "Urban Built-up",
+    "3": "Barren / Empty Land",
+    "4": "Vegetation"
+  },
+  "num_classes": 5,
+  "ignore_index": 255,
+  "patch_size": 256,
+  "inference_stride": 128,
+  "weights_file": "model_weights.pth",
+  "weights_sha256": "43b5e041c7b6c81b4a91377475aa5bc4361b2fc8c4b0d35977686f71c6af5f57",
+  "weights_bytes": 15569532,
+  "weights_url": "https://github.com/vansharora665/Urban-Atlas-Final-Models/releases/download/v1.0.0/pan_2_5m_model_weights.pth",
+  "checkpoint_format": "torch-safe original-component bundle; not a plain state_dict",
+  "requires_custom_loader": true,
+  "loader": "loader.py:load_model",
+  "predict_method": "predict_tif",
+  "supported_inputs": [
+    "projected metre-based GeoTIFF at the declared resolution"
+  ],
+  "requires_external_maps": false,
+  "training_data_included": false,
+  "source_components": [
+    {
+      "path": "model_rebuild_v2/outputs/pan_texture_cascade_v8/pan_texture_cascade_v8.joblib",
+      "sha256": "4f2351437ecf83d3d0d62c509a1c3af281a68e26ff9ebf252cf3b01775d4852d"
+    },
+    {
+      "path": "model_rebuild_v2/outputs/pan_road_continuity_v9/best_model.pt",
+      "sha256": "507dec6915992a6a958ff408db8228413895bb04fff87dc81017a9cde9ae9c50"
+    }
+  ],
+  "limitations": [
+    "Research prototype; no arbitrary-location accuracy guarantee",
+    "Unknown/cloud/no-data remain distinct",
+    "Road surfaces are not a validated navigation graph"
+  ],
+  "licence_note": "Academic/non-commercial research only for the included CoANet dependency; retain upstream notices; not commercially cleared",
+  "weak_reference_agreement": 92.13,
+  "weak_reference_scope": "Partial weak water/urban/vegetation references, not independent five-class test accuracy",
+  "road_specialist": {
+    "architecture": "SegFormer mit_b0",
+    "raw_partial_reference_road_iou": 28.186288021378864,
+    "metric_scope": "Partial weak road references before geometry filtering; not a blind five-class test"
+  },
+  "repository_url": "https://github.com/vansharora665/Urban-Atlas-PAN-2_5m",
+  "weights_mirror_note": "The existing verified combined-release download remains a checksum-pinned fallback; this repository also stores the actual weights via Git LFS."
+}
